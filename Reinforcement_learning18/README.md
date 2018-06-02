@@ -8,6 +8,9 @@ This has Classic Control, Atari, and MuJoCo environments (gym=0.9.something, muj
 This has Classic Control, Atari, MuJoco, and Robotics (gym=0.10.5, mujoco-py=1.50.1.56)
 **mcsit/ece267chw4:latestRobotics**
 
+To run the program locally, we have to make a number of changes to accomodate. This has Classic Control, Atari, MuJoCo, and Robotics
+**mcsit/ece267chw4:localRunRobotics**
+
 # To run the Dockers
 
 In ./Courses_Repo18-20/ run
@@ -27,10 +30,17 @@ If the Atari env doesn't work, follow the pip install gym[atari] command that th
 
 
 ### When you want to run the jupyter notebook to get all the environments, run these three commands
-1. conda env list  (to get the name of your env)
-2. source activate myenv
-3. python -m ipykernel install --user --name myenv --display-name "Python (myenv)"
+```
+conda env list  (to get the name of your myenv)
+source activate myenv
+python -m ipykernel install --user --name myenv --display-name "Python (myenv)"
+```
 
+Typically conda env list returns base so the code will be
+```
+source activate base
+python -m ipykernel install --user --name base --display-name "Python base"
+```
 
 # To run a jupyter notebook in a local Docker
 ```
@@ -45,3 +55,30 @@ localhost:8888 (or whatever port number you used above)
 ```
 
 Put the token text from the command line into the browser.
+
+# Running Docker locally
+If you encounter errors with the localRunRobotics Docker first install python-opengl
+```
+apt-get install python-opengl
+```
+
+Install the following (source: https://stackoverflow.com/questions/21665914/installing-and-configuring-xvfb)
+```
+apt-get install python-pip
+apt-get install xvfb xserver-xephyr vnc4server
+pip install pyvirtualdisplay
+```
+
+Set-up the rest of the packages (source: https://stackoverflow.com/questions/40195740/how-to-run-openai-gym-render-over-a-server)
+If on a linux server, open jupyter with
+```
+$ xvfb-run -s "-screen 0 1400x900x24" jupyter notebook --ip=0.0.0.0 --no-browser --allow-root
+```
+
+In Jupyter
+```
+import matplotlib.pyplot as plt
+%matplotlib inline
+from IPython import display
+```
+The notebook already has from IPython.display import something, but I added the last line in for good measure.
