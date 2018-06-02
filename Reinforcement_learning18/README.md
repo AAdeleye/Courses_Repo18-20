@@ -18,3 +18,8 @@ pip install gym --upgrade
 pip install mujoco-py --upgrade
 
 If the Atari env doesn't work, follow the pip install gym[atari] command that the exception provides.
+
+When you want to run the jupyter notebook run these three commands:
+1. conda env list  (to get the name of your env)
+2. source activate myenv
+3. python -m ipykernel install --user --name myenv --display-name "Python (myenv)"
