@@ -1,0 +1,21 @@
+MuJoCo Pro Lab license activation key, number 6335, type 6.
+
+Issued to Robot Reinforcement Learning, ECE 276C, Prof. Yip, UCSD.
+
+Expires April 11, 2019.
+
+Do not share this file with anyone other than the users covered
+by your license agreement with Roboti LLC. This file activates
+MuJoCo Pro on any computer running any supported OS.
+
+Do not modify this file. Its entire content, including the
+plain text section, is used by the activation manager.
+
+fe1f11734ca31ba8eee6cbfae24d33ff4010e8e1f0c485788ae681a30ba65ee3
+78167d756fe6722c4d5e7f10da869283c73bec9e8933152fbb9a15a472782663
+44960e40038e789f2a0ecc4007973dbbab0267119dc0ec36d29be1c0fbf9e72a
+23ce0a3433e94c76b206de84f67e642b2d516aea70682d30b5318ca6f9087d96
+c4fa453666461757fb35eae9ceff55bddcc25bcbbb7dac47f67ef3b3835b4e3b
+1838c4b33975b13f0e91072be51fb0b9dca8cc9040c6207fe98e17a886763956
+2d2b7932dbd580a374455a3b700523ec439af1a4cef6f51543d28154cf26f145
+1a4977f232bc181889b8afcf0639b7946ba73a587583f3f917285de82b0374c4
