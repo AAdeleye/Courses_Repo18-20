@@ -3,7 +3,7 @@ Hello friends.
 # Dockers of interest
 
 This has Classic Control, Atari, and MuJoCo environments (gym=0.9.something, mujoco-py=0.5.something)
-**mcsit/ece267chw4:latestAtari**
+**mcsit/ece267chw4:latestAtari_base**
 
 This has Classic Control, Atari, MuJoco, and Robotics (gym=0.10.5, mujoco-py=1.50.1.56)
 **mcsit/ece267chw4:latestRobotics**
