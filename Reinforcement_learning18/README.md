@@ -29,7 +29,8 @@ pip install mujoco-py --upgrade
 If the Atari env doesn't work, follow the pip install gym[atari] command that the exception provides.
 
 
-### When you want to run the jupyter notebook to get all the environments, run these three commands
+### Update your cluster with the new gym and mujoco environments
+After testEnv.py runs without errors, you need to update your Jupyter Notebooks so that it can use the updated Python with the exported LD_LIBRARY and so on.
 ```
 conda env list  (to get the name of your myenv)
 source activate myenv
@@ -42,7 +43,7 @@ source activate base
 python -m ipykernel install --user --name base --display-name "Python base"
 ```
 
-# To run a jupyter notebook in a local Docker
+# Running a Jupyter Notebook in a local Docker
 ```
 sudo docker run -p 8888:8888 -it docker/fileThing:tag /bin/bash
 jupyter notebook --ip=0.0.0.0 --no-browser --allow-root
@@ -56,7 +57,7 @@ localhost:8888 (or whatever port number you used above)
 
 Put the token text from the command line into the browser.
 
-# Running Docker locally
+# Running localRunRobotics Docker locally
 If you encounter errors with the localRunRobotics Docker first install python-opengl
 ```
 apt-get install python-opengl
