@@ -1,6 +1,3 @@
-[submodule "Reinforcement_learning18/PyTorch-RL"]
-	path = Reinforcement_learning18/PyTorch-RL
-	url = https://github.com/Khrylx/PyTorch-RL.git
 [submodule "Reinforcement_learning18/hgail"]
 	path = Reinforcement_learning18/hgail
 	url = https://github.com/sisl/hgail.git
