@@ -178,7 +178,8 @@ def test_mapCorrelation():
 	  print("...Test passed.")
   else:
 	  print("...Test failed. Close figures to continue tests.")	
-
+  
+  
   #plot original lidar points
   fig1 = plt.figure()
   plt.plot(xs0,ys0,'.k')
