@@ -8,7 +8,11 @@ Created on Thu Feb  7 11:13:19 2019
 import numpy as np 
 import matplotlib.pyplot as plt
 #from collections import OrderedDict
-from scipy import signal
+#from scipy import signal
+
+
+
+
 
 def bresenham2D(sx, sy, ex, ey):
   '''
@@ -50,6 +54,7 @@ def bresenham2D(sx, sy, ex, ey):
     else:
       y = sy - np.cumsum(q)
   return np.vstack((x,y))
+ 
     
 def Data_Org():
     '''
@@ -69,16 +74,126 @@ def Data_Org():
     Myclock = sorted(Myclock, key=lambda tup: tup[0])
 
 def binary_map():
-    global LOG_MAP
+    global LOG_MAP , VIZ_MAP
     temp = 1- (1/(1+np.exp(LOG_MAP)))
     temp[temp >= 0.8 ] = 1
     temp[temp < 0.8 ] = 0 
+    
+    VIZ_MAP[temp == 1] = 1
+
     return temp
+
+def mapCorrelation(im, x_im, y_im, vp, xs, ys):
+  '''
+  INPUT 
+  im              the map 
+  x_im,y_im       physical x,y positions of the grid map cells
+  vp[0:2,:]       occupied x,y positions from range sensor (in physical unit)  
+  xs,ys           physical x,y,positions you want to evaluate "correlation" 
+
+  OUTPUT 
+  c               sum of the cell values of all the positions hit by range sensor
+  '''
+  nx = im.shape[0]
+  ny = im.shape[1]
+  xmin = x_im[0]
+  xmax = x_im[-1]
+  xresolution = (xmax-xmin)/(nx-1)
+  ymin = y_im[0]
+  ymax = y_im[-1]
+  yresolution = (ymax-ymin)/(ny-1)
+  nxs = xs.size
+  nys = ys.size
+  cpr = np.zeros((nxs, nys))
+  for jy in range(0,nys):
+    y1 = vp[1,:] + ys[jy] # 1 x 1076
+    iy = np.int16(np.round((y1-ymin)/yresolution))
+    for jx in range(0,nxs):
+      x1 = vp[0,:] + xs[jx] # 1 x 1076
+      ix = np.int16(np.round((x1-xmin)/xresolution))
+      valid = np.logical_and( np.logical_and((iy >=0), (iy < ny)), \
+			                        np.logical_and((ix >=0), (ix < nx)))
+      cpr[jx,jy] = np.sum(im[ix[valid],iy[valid]])
+  return cpr
+
+
+def weight_update(x,y):
+    global current_pos, robot_weight, robot_pos 
+    bin_map = binary_map()
+
+    Max_corr = 0 
+    for i in range(0,len(robot_pos[0,:])):
+        pos = robot_pos[:,i]
+        #Tranfrom Lidar from Robot Body to World Frame
+        #Rotoation
+        c, s = np.cos(pos[2]), np.sin(pos[2])
+        R = np.array(((c,-s), (s, c)))
+        lidar_scan = [x,y]
+        xs_t, ys_t = np.dot(R,lidar_scan)
+            #Translation
+        xs_t = pos[0] + xs_t 
+        ys_t = pos[1] + ys_t
+        
+          
+        # convert position in the map frame here
+        Y = np.stack((xs_t,ys_t))
+        
+        '''
+        # convert from meters to cells
+        xis = np.ceil((xs_t - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
+        yis = np.ceil((ys_t - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
+        
+       
+        temp_map = np.zeros((bin_map.shape[0],bin_map.shape[1]))
+        # build an arbitrary map 
+        indGood = np.logical_and(np.logical_and(np.logical_and((xis > 1), (yis > 1)), (xis < MAP['sizex'])), (yis < MAP['sizey']))
+        temp_map[xis[indGood[0]],yis[indGood[0]]]=1
+        
+        corr = bin_map * temp_map
+        corr = corr.sum()
+        '''
+        x_im = np.arange(MAP['xmin'],MAP['xmax']+MAP['res'],MAP['res']) #x-positions of each pixel of the map
+        y_im = np.arange(MAP['ymin'],MAP['ymax']+MAP['res'],MAP['res']) #y-positions of each pixel of the map
+        
+        #X and Y in Cell
+        pos_x = np.ceil((pos[0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
+        pos_y = np.ceil((pos[1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
+       
+        x_range = np.arange(pos_x-4,pos_x+5,1)
+        y_range = np.arange(pos_y-4,pos_y+5,1)
+        x_range = (x_range +1.0) * MAP['res'] + MAP['xmin']
+        y_range = (y_range +1.0) * MAP['res'] + MAP['xmin']
+        '''
+        pos_x = pos_x - 0.2, pos_x + 0.2 + .05
+        pos_y = pos_y -0.2, pos_y + 0.2 + .05
+        x_range = np.arange(pos_x[0],pos_x[1],.05)
+        y_range = np.arange(pos_y[0], pos_y[1],.05)
+        '''
+        
+        c = mapCorrelation(bin_map,x_im,y_im,Y,x_range,y_range)
+        max_i = np.max(c)
+        max_i = np.argwhere(c==max_i)[0]
+        c = c[max_i[0],max_i[1]]
+        '''
+        pos_x = pos_x + max_i[0] -5
+        pos_y = pos_y + max_i[1] -5 
+        robot_pos[0,i] = (pos_x +1.0) * MAP['res'] + MAP['xmin']
+        robot_pos[1,i] = (pos_y +1.0) * MAP['res'] + MAP['xmin']
+        '''
+        robot_weight[i] = robot_weight[i] * np.exp(c)
+        
+    best_pos = robot_pos[:,np.argmax(robot_weight[i])]
+    print(robot_weight)
+    return best_pos 
 
     
 def Log_odds_update(lidar_scan):
-    global robot_pos, MAP, LOG_MAP
-    #Radians 
+    global robot_pos, MAP, LOG_MAP, VIZ_MAP, current_pos
+    '''
+    Handel Lider scan: transfrom to robo frame
+    transfrom to world frame based in each partical
+    (i.e happens in weight update)
+    '''
     angles = np.arange(-135,135.25,0.25)*np.pi/180.0
     indValid = np.logical_and((lidar_scan < 30),(lidar_scan > 0.2))
 
@@ -90,20 +205,53 @@ def Log_odds_update(lidar_scan):
     xs_t = lidar_scan*np.cos(angles) - .13673
     ys_t = lidar_scan*np.sin(angles)
     
-    #Tranfrom Lidar from Robot Body to World Frame
-        #Rotoation
-    c, s = np.cos(robot_pos[2]), np.sin(robot_pos[2])
+    '''
+    #Rotoation
+    c, s = np.cos(robot_pos[:,0][2]), np.sin(robot_pos[:,0][2])
     R = np.array(((c,-s), (s, c)))
     lidar_scan = [xs_t,ys_t]
     xs_t, ys_t = np.dot(R,lidar_scan)
         #Translation
     xs_t = robot_pos[0] + xs_t 
     ys_t = robot_pos[1] + ys_t
+        
+     '''   
+
+    '''
+    Update partical weights based on scan, pick the best partical.
+    That is where we actually moved to. 
+    '''
+
+    # Computer Corrilationa and find best partical
+        #Set robot pose ot best partical
+    current_pos = weight_update(xs_t,ys_t)
+        #Rotoation
+    c, s = np.cos(current_pos[2]), np.sin(current_pos[2])
+    R = np.array(((c,-s), (s, c)))
+    lidar_scan = [xs_t,ys_t]
+    xs_t, ys_t = np.dot(R,lidar_scan)
+        #Translation
+    xs_t = current_pos[0] + xs_t 
+    ys_t = current_pos[1] + ys_t
+        
+    #--------------------
+    #Mapping 
+     # convert from meters to cells
+    xis = np.ceil((current_pos[0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
+    yis = np.ceil((current_pos[1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
+    #print(xis,yis)
+    #print(imu)
+    x_mov.append(xis)
+    y_mov.append(yis)
+
     
+    '''
+    Now that we know where we moved, updated the map based on this movement.
+    '''
     
     #Start pos, where the robot is in meters converted to cells
-    sx = np.ceil((robot_pos[0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
-    sy = np.ceil((robot_pos[1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
+    sx = np.ceil((current_pos[0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
+    sy = np.ceil((current_pos[1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
     
         
     #Set all squares not at the start or end to log
@@ -121,23 +269,16 @@ def Log_odds_update(lidar_scan):
   
         #print("x,y", xz,yz)
         LOG_MAP[xz[0:len(xz)-1],yz[0:len(yz)-1]] += np.log(1/4)
+        VIZ_MAP[xz[0:len(xz)-1],yz[0:len(yz)-1]] = 0 
         #np.add(a, -100, out=a, casting="unsafe") #np.log(1/4)
         #print(xz[len(xz)-1],yz[len(yz)-1])
         LOG_MAP[ xz[len(xz)-1],yz[len(yz)-1]] +=  np.log(4)
+        
     
         
         #plt.pause(0.001)
         #plt.clf()
     #plt.show(block=True)
-        
-    '''
-    #Points from start to right before end
-    for ii in range(0,len_map-1):
-        LOG_MAP[int(map_updates[0,ii]),int(map_updates[1,ii])] += np.log(1/4)
-    #End point (Where the object is), unless it is right in front of us
-    if len_map != 1:
-        LOG_MAP[int(map_updates[0,len_map-1]),int(map_updates[1,int(len_map-1)])] += np.log(4)
-    '''
 
 def Mapping():
   
@@ -160,8 +301,16 @@ def Mapping():
             cnt += 1
             Log_odds_update(lidar_ranges[:,sensor_scan[2]])
             print(cnt)
-            #if cnt == 41:
-                #break 
+            
+            '''
+            fig, ax = plt.subplots()
+            plt.scatter(y_mov,x_mov,1)
+            plt.savefig('Plot_pics/Viz/' + str(cnt), VIZ_MAP)  
+            #plt.savefig('Plot_pics/t_2'+ str(cnt))
+            '''
+            
+            if cnt == 700:
+                break 
         if sensor_scan[1] == 'e':
             #''''We acount for when we start and don't have imu but not for when we end and don't have imu''' 
             if imu == 0:
@@ -172,38 +321,46 @@ def Mapping():
                 
                 #Predition step
                 tv_l =  (encoder[1] + encoder[3] ) /2
-                tv_l = tv_l * .0022
-                
+                tv_l = tv_l * .0022 
                 tv_r = (encoder[0] + encoder[2] ) /2 
                 tv_r = tv_r *.0022
-                
                 tv = (tv_l + tv_r) / 2 
                 
-               
-                w_i = imu # imu_avg[0] / imu_avg[1] 
                 T = sensor_scan[0] - encoder_stamps[sensor_scan[2]-1]
+                w_i = imu # imu_avg[0] / imu_avg[1] 
                 
-                a = (w_i * T) /2 
-                b = robot_pos[2] + a 
+                b = w_i * T 
+                a = tv * np.sinc(b/2)
+                c = np.cos(robot_pos[2,:] + b/2)
+                d = np.sin(robot_pos[2,:] + b/2) 
+                robot_pos[0,:] = robot_pos[0,:] + a*c 
+                robot_pos[1,:] = robot_pos[1,:] + a*d
+                robot_pos[2,:] = robot_pos[2,:] + b
+
+
+                #Add Gausian Noise to robot motion
+                partical_len = len(robot_pos[0,:])
+                for i in range(0,partical_len-1):
+                    robot_pos[0,i] = robot_pos[0,i] + np.random.normal(0,.1,1)
+                    robot_pos[1,i] = robot_pos[1,i] + np.random.normal(0,.1,1)
+                    robot_pos[2,i] = robot_pos[2,i] + np.random.normal(0,.0005,1)
                 
-                robot_pos[0] = robot_pos[0] + (np.sinc(a) * np.cos(b))* tv
-                robot_pos[1] = robot_pos[1] + (np.sinc(a) * np.sin(b))* tv
-                robot_pos[2] = robot_pos[2] + (w_i * T)
                 
+                
+                '''
                 #--------------------
                 #Mapping 
                  # convert from meters to cells
-                xis = np.ceil((robot_pos[0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
-                yis = np.ceil((robot_pos[1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
+                xis = np.ceil((current_pos[0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
+                yis = np.ceil((current_pos[1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
                 #print(xis,yis)
                 #print(imu)
                 x_mov.append(xis)
                 y_mov.append(yis)
-             
+                '''
+                
                 past_encoder = sensor_scan[0]
               
-                # Computer Corrilationa and find best partical
-                    #Set robot pose ot best partical
                 
         if sensor_scan[1] == 'i':
             imu = imu_angular_velocity[2,sensor_scan[2]]
@@ -268,9 +425,10 @@ if __name__ == '__main__':
     MAP['map'] = np.zeros((MAP['sizex'],MAP['sizey']),dtype=np.int8) #DATA TYPE: char or int8  
     
     #Log Odds Map
-    LOG_MAP = np.zeros((MAP['sizex'],MAP['sizey'])) #DATA TYPE: char or int8  
+    LOG_MAP = np.zeros((MAP['sizex'],MAP['sizey'])) #DATA TYPE: char or int8 
+    
+    VIZ_MAP = np.ones((MAP['sizex'],MAP['sizey']))* 2 #DATA TYPE: char or int8 
 
-    print(LOG_MAP.shape)
     
     #Varaibles needed 
     Myclock  = [ ] 
@@ -278,16 +436,17 @@ if __name__ == '__main__':
     x_mov = []
     y_mov = [] 
     
-    robo_p = np.zeros((2,5))
-    robo_d =np.zeros((2,5))
-    robo_w = np.zeros((2,5))
+    N = 3 
+    robot_pos = np.zeros((3,N))
+    robot_weight = np.ones(N) * 1/N 
+    current_pos = [0,0,0]
     #robot_pos = [0,0,0]
     
-    xis = np.ceil((robot_pos[0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
-    yis = np.ceil((robot_pos[1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
+    #xis = np.ceil((robot_pos[0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
+    #yis = np.ceil((robot_pos[1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
     
-    x_mov.append(xis)
-    y_mov.append(yis)
+    #x_mov.append(xis)
+    #y_mov.append(yis)
   
     
 
@@ -295,14 +454,16 @@ if __name__ == '__main__':
     Mapping()
     
     fig, ax = plt.subplots()
-    im = ax.imshow(LOG_MAP)
+    im = ax.imshow(VIZ_MAP)
+    plt.scatter(y_mov,x_mov,1)
+    plt.show()
     
     MAP['map'] = binary_map()
-    fig, ax = plt.subplots()
-    im = ax.imshow(MAP['map'])
+    #fig, ax = plt.subplots()
+    #im = ax.imshow(MAP['map'])
     
-    plt.scatter(y_mov,x_mov,1)
+    #plt.scatter(y_mov,x_mov,1)
     #plt.colorbar()
-    plt.show()
-    plt.savefig('Plot_pics/t')#+ str(cnt))
+    #plt.show()
+    plt.savefig('Plot_pics/t_2')#+ str(cnt))
     pass 

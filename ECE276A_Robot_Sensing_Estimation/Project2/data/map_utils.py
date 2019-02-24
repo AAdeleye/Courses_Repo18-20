@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt; plt.ion()
 from mpl_toolkits.mplot3d import Axes3D
 import time
+ 
 
 def tic():
   return time.time()
@@ -134,11 +135,10 @@ def test_mapCorrelation():
   xs0 = ranges*np.cos(angles)
   ys0 = ranges*np.sin(angles)
   print("xShape",xs0.shape)
-  print(xs0)
-  print(ys0)
+
   
   # convert position in the map frame here 
-  Y = np.stack((xs0,ys0))
+  Y = np.stack(( xs0,ys0))
   
   # convert from meters to cells
   xis = np.ceil((xs0 - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
@@ -147,18 +147,27 @@ def test_mapCorrelation():
   # build an arbitrary map 
   indGood = np.logical_and(np.logical_and(np.logical_and((xis > 1), (yis > 1)), (xis < MAP['sizex'])), (yis < MAP['sizey']))
   MAP['map'][xis[indGood[0]],yis[indGood[0]]]=1
+  print("map_shape", MAP['map'].shape)
+
 
   #import pdb
   #pdb.set_trace()
       
   x_im = np.arange(MAP['xmin'],MAP['xmax']+MAP['res'],MAP['res']) #x-positions of each pixel of the map
   y_im = np.arange(MAP['ymin'],MAP['ymax']+MAP['res'],MAP['res']) #y-positions of each pixel of the map
+  print(x_im.shape)
+  x_range = np.arange(-0.2,+0.2+0.05,0.05)
+  x_range1 = np.arange(399-4,399+5,1)
+  y_range = np.arange(402-0.2,402+0.2+0.05,0.05)
 
-  x_range = np.arange(-0.2,0.2+0.05,0.05)
-  y_range = np.arange(-0.2,0.2+0.05,0.05)
-
-    
-  
+  ##--------Testing
+    # convert from meters to cells
+  print("xrange",x_range1)
+  xis = np.ceil((x_range - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
+  xis_r = (x_range1 +1.0) * MAP['res'] + MAP['xmin']
+  print("xis", xis)
+  #print("xis", xis_r)
+  #----------------
   print("Testing map_correlation with {}x{} cells".format(MAP['sizex'],MAP['sizey']))
   ts = tic()
   c = mapCorrelation(MAP['map'],x_im,y_im,Y,x_range,y_range)
@@ -181,20 +190,21 @@ def test_mapCorrelation():
   
   
   #plot original lidar points
-  fig1 = plt.figure()
-  plt.plot(xs0,ys0,'.k')
+  #fig1 = plt.figure()
+  #plt.plot(xs0,ys0,'.k')
 
   #plot map
-  fig2 = plt.figure()
+  #fig2 = plt.figure()
   #plt.imshow(MAP['map'],cmap="hot");
 
+  '''
   #plot correlation
   fig3 = plt.figure()
   ax3 = fig3.gca(projection='3d')
   X, Y = np.meshgrid(np.arange(0,9), np.arange(0,9))
   ax3.plot_surface(X,Y,c,linewidth=0,cmap=plt.cm.jet, antialiased=False,rstride=1, cstride=1)
-  #plt.show()
-  
+  plt.show()
+  '''
   
 def show_lidar():
   angles = np.arange(-135,135.25,0.25)*np.pi/180.0
