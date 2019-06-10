@@ -1,7 +1,12 @@
-This project is based off of the repo and paper listed beflow.
+
+#CSE291_Topics on Search and Reasoning
 
 
-[Repo .](https://github.com/sbarratt/rl-mapping)
-[Paper .](https://arxiv.org/abs/1712.10069) 
+The final project for this class is built upon this [Repo .](https://github.com/sbarratt/rl-mapping)  and [Paper .](https://arxiv.org/abs/1712.10069).
+
+The Enviorment is modifyed to inculde two agents and a new network architecture is devloped. 
+
+
+
 
 
