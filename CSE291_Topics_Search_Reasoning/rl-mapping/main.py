@@ -96,6 +96,7 @@ else:
 
 # Initialize necessary variables
 obs = env.reset()
+env.render(reset=True)
 done = False
 t = 0
 episodes = 0
@@ -121,6 +122,7 @@ while episodes < opt.N_episodes:
 
         # Receive reward r_t and new state s_t+1
         obs, reward, done, info = env.step(a)
+        env.render()
         t += 1
 
         observations.append(obs_npy)
@@ -132,6 +134,7 @@ while episodes < opt.N_episodes:
             R = 0
             episodes += 1
             obs = env.reset()
+            env.render(reset=True)
 
             print ("Finished Episode %d:" % episodes, ep_rewards[-1], np.mean(ep_rewards[-50:]))
             ep_rewards.append(0.)
@@ -200,6 +203,7 @@ np.save(os.path.join(opt.experiment, 'results'), ep_rewards)
 rewards = []
 for k in range(1000):
     obs = env.reset()
+    env.render(reset=True)
 
     done = False
     R = 0
@@ -217,6 +221,7 @@ for k in range(1000):
 
         # Receive reward r_t and new state s_t+1
         obs, reward, done, info = env.step(a)
+        env.render()
 
         R += reward
     print (R)

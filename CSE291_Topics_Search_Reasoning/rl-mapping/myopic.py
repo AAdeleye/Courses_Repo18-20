@@ -24,6 +24,9 @@ parser.add_argument('--sensor_p', type=float, default=.8, help='probability sens
 
 parser.add_argument('--seed', type=int, default=random.randint(0, 10000), help='random seed')
 
+
+parser.add_argument('--N_episodes', type=int, default=1000, help='Number of episodes')
+
 opt = parser.parse_args()
 print(opt)
 
@@ -46,6 +49,7 @@ env = MappingEnvironment(ism_proto, N=opt.N, p=opt.map_p, episode_length=opt.epi
 
 # Test
 rewards = []
+#for k in range(opt.N_episode):
 for k in range(1000):
     obs = env.reset()
 

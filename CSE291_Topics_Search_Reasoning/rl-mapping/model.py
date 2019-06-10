@@ -129,9 +129,37 @@ class ResNetActorCritic(nn.Module):
         x = F.relu(x)
         pa = F.softmax(self.policy_linear(x))
         V = self.critic_linear(x)
-
+        
         return pa, V.view(-1)
 
+class PolNet(nn.Module):
+    def __init__(self, H_in=100, nc=2, na=4):
+        super(ResNetActorCritic, self).__init__()
+        self.H_in = H_in
+        self.nc = nc
+        self.na = na
+
+        self.conv1 = nn.Conv2d(self.nc, 32, kernel_size=3, stride=1, padding=1)
+        self.tower = nn.Sequential(*[ResidualBlock(32) for _ in range(6)])
+
+        self.linear = nn.Linear(32*self.H_in*self.H_in, 256)
+        self.agent1_policy = nn.Linear(256, self.na)
+        self.agent2_policy = nn.Linear(256, self.na)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = F.relu(x)
+
+        x = self.tower(x)
+        x = x.view(-1, 32*self.H_in*self.H_in)
+
+        x = self.linear(x)
+        x = F.relu(x)
+        pa1 = F.softmax(self.agent1_policy(x))
+        pa2 = F.softmax(self.agent2_policy(x))
+        
+        return pa1,pa2
+        
 if __name__ == '__main__':
     obs = torch.randn(32, 2, 70, 70)
     obsv = Variable(obs)
