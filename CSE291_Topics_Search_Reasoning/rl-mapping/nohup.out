@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "main.py", line 5, in <module>
+    from envs import MappingEnvironment, LocalISM, RangeISM
+  File "/home/users/aadeleye/Experiments/rl-mapping/envs.py", line 3, in <module>
+    from bresenham import bresenham
+ModuleNotFoundError: No module named 'bresenham'
+Traceback (most recent call last):
+  File "main.py", line 5, in <module>
+    from envs import MappingEnvironment, LocalISM, RangeISM
+  File "/home/users/aadeleye/Experiments/rl-mapping/envs.py", line 3, in <module>
+    from bresenham import bresenham
+ModuleNotFoundError: No module named 'bresenham'
+Traceback (most recent call last):
+  File "main.py", line 6, in <module>
+    from model import CNNActorCritic, MLPActorCritic, ResNetActorCritic, LinearActorCritic
+  File "/home/users/aadeleye/Experiments/rl-mapping/model.py", line 7, in <module>
+    import IPython as ipy
+ModuleNotFoundError: No module named 'IPython'
+/home/users/aadeleye/Experiments/rl-mapping/model.py:43: UserWarning: Implicit dimension choice for softmax has been deprecated. Change the call to include dim=X as an argument.
+  pa = F.softmax(self.policy_linear(x))
+Namespace(N=25, N_episodes=20000, anneal_gamma=0.5, anneal_step_size=5000, cuda=False, episode_length=300, experiment='runs/mlp', gamma=0.99, lambda_entropy=0.001, lr=0.0003, map_p=0.1, max_grad_norm=50.0, max_steps=20, network='mlp', optimizer='adam', prims=False, seed=7, sensor_p=0.8, sensor_span=1, sensor_type='local')
+Main training loop
+Traceback (most recent call last):
+  File "main.py", line 123, in <module>
+    obs, reward, done, info = env.step(a)
+  File "/home/users/aadeleye/Experiments/rl-mapping/envs.py", line 205, in step
+    dx, dy, dr = ACTIONS[a]
+KeyError: tensor(3)
