@@ -79,7 +79,7 @@ elif opt.network == 'mlp':
 elif opt.network == 'resnet':
     actor_critic = ResNetActorCritic(H_in = env.observation_size(), nc = env.num_channels(), na = env.num_actions())
 elif opt.network == 'polnet':
-    policy_gradient = PolNet(H_in = env.observation_size(), nc = env.num_channels(), na = env.num_actions())
+    policy_gradient_net = PolNet(H_in = env.observation_size(), nc = env.num_channels(), na = env.num_actions())
 else:
     raise Exception('network type not supported')
 
@@ -91,6 +91,7 @@ if opt.optimizer == 'rmsprop':
     actor_critic_optimizer = torch.optim.RMSprop(actor_critic.parameters(), lr=opt.lr)
 elif opt.optimizer == 'adam':
     actor_critic_optimizer = torch.optim.Adam(actor_critic.parameters(), lr=opt.lr)
+    policy_gradient_optimizer = torch.optim.Adam(policy_gradient_net.parameters(), lr=opt.lr)
 elif opt.optimizer == 'sgd':
     actor_critic_optimizer = torch.optim.SGD(actor_critic.parameters(), lr=opt.lr)
 else:
@@ -116,13 +117,15 @@ while episodes < opt.N_episodes:
         if opt.cuda:
             obst = obst.cuda()
         obsv = Variable(obst)
-        actor_critic.eval()
-        pa, V = actor_critic(obsv)
-        pa = Multinomial(pa)
-        a = pa.sample().data[0]
+        policy_gradient_net.eval()
+        pa1,pa2 = policy_gradinet_net(obsv)
+        pa1 = Multinomial(pa1)
+        pa2 = Multinomial(pa1)
+        a1 = pa1.sample().data[0]
+        a2 = pa2.sample().data[0]
 
         # Receive reward r_t and new state s_t+1
-        obs, reward, done, info = env.step(a)
+        obs, reward, done, info = env.step(a1,a2)
         t += 1
 
         observations.append(obs_npy)
@@ -144,7 +147,8 @@ while episodes < opt.N_episodes:
                 if opt.optimizer == 'rmsprop':
                     actor_critic_optimizer = torch.optim.RMSprop(actor_critic.parameters(), lr=opt.lr)
                 elif opt.optimizer == 'adam':
-                    actor_critic_optimizer = torch.optim.Adam(actor_critic.parameters(), lr=opt.lr)
+                    #actor_critic_optimizer = torch.optim.Adam(actor_critic.parameters(), lr=opt.lr)
+                    policy_gradient_optimizer = torch.optim.Adam(policy_gradient_net.parameters(), lr=opt.lr)
                 elif opt.optimizer == 'sgd':
                     actor_critic_optimizer = torch.optim.SGD(actor_critic.parameters(), lr=opt.lr)
             break
