@@ -149,7 +149,7 @@ class Multinomial(Distribution):
         if value.dim() == 1 and self.probs.dim() == 1:
             # special handling until we have 0-dim tensor support
             return p.gather(-1, value).log()
-
+         
         return p.gather(-1, value.unsqueeze(-1)).squeeze(-1).log()
 
 

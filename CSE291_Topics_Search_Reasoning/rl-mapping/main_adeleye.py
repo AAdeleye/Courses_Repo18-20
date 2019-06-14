@@ -3,7 +3,7 @@ import os
 import random
 
 from envs_adeleye import MappingEnvironment, LocalISM, RangeISM
-from model import CNNActorCritic, MLPActorCritic, ResNetActorCritic, LinearActorCritic
+from model import CNNActorCritic, MLPActorCritic, ResNetActorCritic, LinearActorCritic, PolNet
 from distributions import Multinomial
 
 import torch
@@ -36,10 +36,10 @@ parser.add_argument('--gamma', type=float, default=.99, help='discount rate')
 parser.add_argument('--episode_length', type=int, default=200, help='length of mapping environment episodes')
 
 # Training
-parser.add_argument('--N_episodes', type=int, default=100, help='number of episodes to train for')
+parser.add_argument('--N_episodes', type=int, default=20000, help='number of episodes to train for')
 parser.add_argument('--max_steps', type=int, default=20, help='number of forward steps in A2C')
 parser.add_argument('--optimizer', default='adam', help='sgd | adam | rmsprop')
-parser.add_argument('--anneal_step_size', type=int, default=10, help='number of episodes until anneal learning rate')
+parser.add_argument('--anneal_step_size', type=int, default=5000, help='number of episodes until anneal learning rate')
 parser.add_argument('--anneal_gamma', type=float, default=.5, help='annealing multiplicative factor')
 parser.add_argument('--lr', type=float, default=3e-4, help='learning rate for ADAM optimizer')
 parser.add_argument('--lambda_entropy', type=float, default=.001, help='entropy term coefficient')
@@ -84,13 +84,14 @@ else:
     raise Exception('network type not supported')
 
 if opt.cuda:
-    actor_critic = actor_critic.cuda()
+    #actor_critic = actor_critic.cuda()
+    policy_gradient_net = policy_gradient_net.cuda()
 
 # Initialize optimizer and learning rate scheduler
 if opt.optimizer == 'rmsprop':
     actor_critic_optimizer = torch.optim.RMSprop(actor_critic.parameters(), lr=opt.lr)
 elif opt.optimizer == 'adam':
-    actor_critic_optimizer = torch.optim.Adam(actor_critic.parameters(), lr=opt.lr)
+    #actor_critic_optimizer = torch.optim.Adam(actor_critic.parameters(), lr=opt.lr)
     policy_gradient_optimizer = torch.optim.Adam(policy_gradient_net.parameters(), lr=opt.lr)
 elif opt.optimizer == 'sgd':
     actor_critic_optimizer = torch.optim.SGD(actor_critic.parameters(), lr=opt.lr)
@@ -99,6 +100,7 @@ else:
 
 # Initialize necessary variables
 obs = env.reset()
+env.render(reset=True)
 done = False
 t = 0
 episodes = 0
@@ -118,18 +120,19 @@ while episodes < opt.N_episodes:
             obst = obst.cuda()
         obsv = Variable(obst)
         policy_gradient_net.eval()
-        pa1,pa2 = policy_gradinet_net(obsv)
+        pa1,pa2 = policy_gradient_net(obsv)
         pa1 = Multinomial(pa1)
-        pa2 = Multinomial(pa1)
+        pa2 = Multinomial(pa2)
         a1 = pa1.sample().data[0]
         a2 = pa2.sample().data[0]
 
         # Receive reward r_t and new state s_t+1
         obs, reward, done, info = env.step(a1,a2)
+        env.render()
         t += 1
 
         observations.append(obs_npy)
-        actions.append(a)
+        actions.append([a1,a2])
         rewards.append(reward)
         ep_rewards[-1] += reward
 
@@ -137,6 +140,7 @@ while episodes < opt.N_episodes:
             R = 0
             episodes += 1
             obs = env.reset()
+            env.render(reset=True)
 
             print ("Finished Episode %d:" % episodes, ep_rewards[-1], np.mean(ep_rewards[-50:]))
             ep_rewards.append(0.)
@@ -154,7 +158,8 @@ while episodes < opt.N_episodes:
             break
 
         if t - t_start == opt.max_steps: # reached num. forward steps
-            R = V.data[0]
+            #R = V.data[0]
+            R= 0
             break
 
     # accumulate rewards for advantage calculation
@@ -163,11 +168,14 @@ while episodes < opt.N_episodes:
         R = rewards[i] + opt.gamma*R
         rewards[i] = R
         i -= 1
-
-    actions_t = torch.Tensor(actions).type(torch.LongTensor)
+    
+    actions_t1 = torch.Tensor([item[0] for item in actions]).type(torch.LongTensor)
+    actions_t2 = torch.Tensor([item[1] for item in actions]).type(torch.LongTensor)
     if opt.cuda:
-        actions_t = actions_t.cuda()
-    actions_v = Variable(actions_t)
+        actions_t1 = actions_t1.cuda()
+        actions_t2 = actions_t2.cuda()
+    actions_v1 = Variable(actions_t1)
+    actions_v2 = Variable(actions_t2)
 
     rewards_t = torch.Tensor(rewards)
     if opt.cuda:
@@ -180,32 +188,39 @@ while episodes < opt.N_episodes:
         observations_t = observations_t.cuda()
     observations_v = Variable(observations_t)
 
-    actor_critic.train()
-    pa, V = actor_critic(observations_v)
-    pa_multinomial = Multinomial(pa)
+    policy_gradient_net.train()
+    pa1,pa2 = policy_gradient_net(observations_v)
+    pa1_multinomial = Multinomial(pa1)
+    pa2_multinomial = Multinomial(pa2)
 
-    actor_critic.zero_grad()
+    policy_gradient_net.zero_grad()
 
     # gradient step
-    policy_loss = (-pa_multinomial.log_prob(actions_v) * (rewards_v - V.detach())).mean()
-    value_loss = (rewards_v - V).pow(2).mean()
-    entropy = -torch.sum(pa * torch.log(pa), dim=1).mean()
+    policy_loss1 = -pa1_multinomial.log_prob(actions_v1) * (rewards_v)
+    policy_loss2 = -pa2_multinomial.log_prob(actions_v2) * (rewards_v)
 
-    (policy_loss + value_loss - opt.lambda_entropy * entropy).backward()
+    #value_loss = (rewards_v - V).pow(2).mean()
+    entropy1 = -torch.sum(pa1 * torch.log(pa1), dim=1).mean()
+    entropy2 = -torch.sum(pa2 * torch.log(pa2), dim=1).mean()
+    policy_lossT = (policy_loss1) + (policy_loss2)
 
-    torch.nn.utils.clip_grad_norm(actor_critic.parameters(), opt.max_grad_norm)
-    actor_critic_optimizer.step()
+    (policy_lossT).sum().backward()
+
+    torch.nn.utils.clip_grad_norm(policy_gradient_net.parameters(), opt.max_grad_norm)
+    policy_gradient_optimizer.step()
 
     np.save(os.path.join(opt.experiment, 'results'), ep_rewards)
 
     if episodes % 1000 == 0:
-        torch.save(actor_critic.state_dict(), os.path.join(opt.experiment, 'actor_critic_episode%d.torch' % episodes))
-torch.save(actor_critic.state_dict(), os.path.join(opt.experiment, 'actor_critic_episode%d.torch' % episodes))
+        torch.save(policy_gradient_net.state_dict(), os.path.join(opt.experiment, 'actor_critic_episode%d.torch' % episodes))
+
+torch.save(policy_gradient_net.state_dict(), os.path.join(opt.experiment, 'actor_critic_episode%d.torch' % episodes))
 np.save(os.path.join(opt.experiment, 'results'), ep_rewards)
 
 rewards = []
 for k in range(1000):
     obs = env.reset()
+    env.render(reset=True)
 
     done = False
     R = 0
@@ -216,13 +231,16 @@ for k in range(1000):
         if opt.cuda:
             obst = obst.cuda()
         obsv = Variable(obst)
-        actor_critic.eval()
-        pa, V = actor_critic(obsv)
-        pa = Multinomial(pa)
-        a = pa.sample().data[0]
+        policy_gradient_net.eval()
+        pa1,pa2 = policy_gradient_net(obsv)
+        pa1 = Multinomial(pa1)
+        pa2 = Multinomial(pa2)
+        a1 = pa1.sample().data[0]
+        a2 = pa2.sample().data[0]
 
         # Receive reward r_t and new state s_t+1
-        obs, reward, done, info = env.step(a)
+        obs, reward, done, info = env.step(a1,a2)
+        env.render()
 
         R += reward
     print (R)

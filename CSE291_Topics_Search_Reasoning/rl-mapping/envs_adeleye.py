@@ -19,16 +19,16 @@ ACTIONS = {
 
 class Pose:
     def __init__(self, x1=0, y1=0, x2=1, y2=1, orientation1=0, orientation2=0):
-        self.x1 = x_1
-        self.y1 = y_1
+        self.x1 = x1
+        self.y1 = y1
         self.orientation1 = orientation1
         
         self.x2 = x2
-        self.y2 = y_2
+        self.y2 = y2
         self.orientation2 = orientation2
     
-    def agents(self)
-        return  {0:[self.x1,self.y1,orientation1] , 1:[self.x2,self.x2,orientation2]}  
+    def agents(self):
+        return  {0:[self.x1,self.y1,self.orientation1] , 1:[self.x2,self.y2,self.orientation2]}  
 
 class LocalISM(object):
     def __init__(self, map, span=1, p_correct=.8):
@@ -40,7 +40,7 @@ class LocalISM(object):
     def log_odds(self, pose):
         l = np.zeros((self.N, self.N))
         
-        agents_location = pose.agents 
+        agents_location = pose.agents() 
         for agent in range(0,2):
             x_pose , y_pose  = agents_location[agent][0], agents_location[agent][1]
             x_low, x_high = max(x_pose-self.span, 0), min(x_pose+self.span, self.N-1)
@@ -105,8 +105,7 @@ class MappingEnvironment(object):
             self.a1_x, self.a1_y = np.random.randint(0, self.N), np.random.randint(0, self.N)
             self.a2_x, self.a2_y = np.random.randint(0, self.N), np.random.randint(0, self.N)
             if self.a1_x == self.a2_x and self.a1_y == self.a2_y:
-                self.a1_x, self.a1_y = np.random.randint(0, self.N), \ 
-                                       np.random.randint(0, self.N)
+                self.a1_x, self.a1_y = np.random.randint(0, self.N), np.random.randint(0, self.N)
             
         else:
             self.a1_x, self.a1_y, self.a2_x, self.a2_y = 0, 0, 0, 0
@@ -171,8 +170,10 @@ class MappingEnvironment(object):
     def in_map(self, x, y):
         return x >= 0 and y >= 0 and x < self.N and y < self.N
 
-    def legal_change_in_pose(self, pose, dx, dy):
-        return self.in_map(pose.x + dx, pose.y + dy) and self.map[pose.x + dx, pose.y + dy] == 0
+    def legal_change_in_a1pose(self, pose, dx, dy):
+        return self.in_map(pose.x1 + dx, pose.y1 + dy) and self.map[pose.x1 + dx, pose.y1 + dy] == 0
+    def legal_change_in_a2pose(self, pose, dx, dy):
+        return self.in_map(pose.x2 + dx, pose.y2 + dy) and self.map[pose.x2 + dx, pose.y2 + dy] == 0
 
     def logodds_to_prob(self, l_t):
         return 1 - 1./(1 + np.exp(l_t))
@@ -188,18 +189,18 @@ class MappingEnvironment(object):
 
     def get_observation(self):
         #I think he is centering the belife map on the current pose
-        agents_loc = pose.agents
+        agents_loc = self.pose.agents()
         p = [None, None]
         ent = [None, None]
         for agent in range(0,2):
-            x_pose, y_pose = agents_loc[agent][[0], agent_loc[agent][1]
+            x_pose, y_pose = agents_loc[agent][0], agents_loc[agent][1]
             augmented_p = float("inf")*np.ones((3*self.N-2, 3*self.N-2))
             augmented_p[self.N-1:2*self.N-1, self.N-1:2*self.N-1] = self.l_t
             obs = augmented_p[x_pose:x_pose+2*self.N-1, y_pose:y_pose+2*self.N-1]
 
             p[agent] = self.logodds_to_prob(obs)
         
-            ent = self.calc_entropy(obs)
+            ent[agent] = self.calc_entropy(obs)
 
         # # scale p to [-1, 1]
         p[0] = (p[0] - .5)*2
@@ -211,16 +212,15 @@ class MappingEnvironment(object):
         ent[1] /= -np.log(.5)
         ent[1] = (ent[1] - .5)*2
 
-        return np.concatenate([np.expand_dims(p[0], -1), np.expand_dims(ent[0], -1), \
-                 np.expand_dims(p[1], -1), np.expand_dims(ent[1], -1)], axis=-1)
+        return np.concatenate([np.expand_dims(p[0], -1), np.expand_dims(ent[0], -1),np.expand_dims(p[1], -1), np.expand_dims(ent[1], -1)], axis=-1)
 
     def num_channels(self):
         return 4
 
-    def num_actions(self)
+    def num_actions(self):
         return len(ACTIONS.keys())
 
-    def step(self, a):
+    def step(self, a1,a2):
         # Step time
         if self.t is None:
             print ("Must call env.reset() before calling step()")
@@ -228,14 +228,16 @@ class MappingEnvironment(object):
         self.t += 1
 
         # Perform action
-        dx1, dy1, dr1,dx2,dy2,dr2 = ACTIONS[a]
-        if self.legal_change_in_pose(self.pose, dx1, dy1, dx2, dy2):
+        dx1, dy1, dr1 = ACTIONS[a1]
+        dx2,dy2,dr2 = ACTIONS[a2]
+        if self.legal_change_in_a1pose(self.pose, dx1, dy1):
             self.pose.x1 += dx1
             self.pose.y1 += dy1
-            self.pose.orientation1 = (self.pose.orientation + dr1) % 360
+            self.pose.orientation1 = (self.pose.orientation1 + dr1) % 360
+        if self.legal_change_in_a2pose(self.pose, dx2, dy2):
             self.pose.x2 += dx2
             self.pose.y2 += dy2
-            self.pose.orientation2 = (self.pose.orientation + dr2) % 360
+            self.pose.orientation2 = (self.pose.orientation2 + dr2) % 360
 
         # bayes filter
         new_l_t = self.l_t + self.ism.log_odds(self.pose)
@@ -276,7 +278,7 @@ class MappingEnvironment(object):
                         self.viewer.add_geom(poly)
                 self.geom_grid.append(geoms)
 
-            self.pos = make_box(self.pose.x1 self.pose.y1, 1, 1, color=(1., 105./255, 180./255))
+            self.pos = make_box(self.pose.x1, self.pose.y1, 1, 1, color=(1., 105./255, 180./255))
             self.postrans = rendering.Transform()
             self.postrans.set_translation(self.a1_x, self.a1_y)
             self.pos.add_attr(self.postrans)
@@ -306,9 +308,9 @@ class MappingEnvironment(object):
                 self.geom_grid[i][j].set_color(0, p[i, j], 0)
 
         self.postrans.set_translation(self.pose.x1-self.a1_x, self.pose.y1-self.a1_y)
-        self.postrans1.set_translation(self.pose.x1-self.a1_x+self.N, self.pose.y2-self.a1_y)
+        self.postrans1.set_translation(self.pose.x1-self.a1_x+self.N, self.pose.y1-self.a1_y)
         self.postrans2.set_translation(self.pose.x2-self.a2_x, self.pose.y2-self.a2_y)
-        self.postrans3.set_translation(self.pose.x2-self.x0+self.N, self.pose.y-self.a2_y)
+        self.postrans3.set_translation(self.pose.x2-self.a2_x+self.N, self.pose.y2-self.a2_y)
 
         return self.viewer.render(return_rgb_array = True)
 

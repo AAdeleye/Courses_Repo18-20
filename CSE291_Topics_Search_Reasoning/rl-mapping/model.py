@@ -134,7 +134,7 @@ class ResNetActorCritic(nn.Module):
 
 class PolNet(nn.Module):
     def __init__(self, H_in=100, nc=2, na=4):
-        super(ResNetActorCritic, self).__init__()
+        super(PolNet, self).__init__()
         self.H_in = H_in
         self.nc = nc
         self.na = na
