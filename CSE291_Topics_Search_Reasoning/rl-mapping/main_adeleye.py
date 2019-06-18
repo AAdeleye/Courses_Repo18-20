@@ -33,7 +33,7 @@ parser.add_argument('--sensor_p', type=float, default=.8, help='probability sens
 
 # MDP
 parser.add_argument('--gamma', type=float, default=.99, help='discount rate')
-parser.add_argument('--episode_length', type=int, default=200, help='length of mapping environment episodes')
+parser.add_argument('--episode_length', type=int, default=300, help='length of mapping environment episodes')
 
 # Training
 parser.add_argument('--N_episodes', type=int, default=20000, help='number of episodes to train for')
@@ -41,7 +41,7 @@ parser.add_argument('--max_steps', type=int, default=20, help='number of forward
 parser.add_argument('--optimizer', default='adam', help='sgd | adam | rmsprop')
 parser.add_argument('--anneal_step_size', type=int, default=5000, help='number of episodes until anneal learning rate')
 parser.add_argument('--anneal_gamma', type=float, default=.5, help='annealing multiplicative factor')
-parser.add_argument('--lr', type=float, default=3e-4, help='learning rate for ADAM optimizer')
+parser.add_argument('--lr', type=float, default=10e-8, help='learning rate for ADAM optimizer')
 parser.add_argument('--lambda_entropy', type=float, default=.001, help='entropy term coefficient')
 parser.add_argument('--max_grad_norm', type=float, default=50., help='max gradient norm of actor_critic')
 parser.add_argument('--seed', type=int, default=random.randint(0, 10000), help='random seed')
@@ -100,7 +100,7 @@ else:
 
 # Initialize necessary variables
 obs = env.reset()
-env.render(reset=True)
+#env.render(reset=True)
 done = False
 t = 0
 episodes = 0
@@ -125,22 +125,22 @@ while episodes < opt.N_episodes:
         pa2 = Multinomial(pa2)
         a1 = pa1.sample().data[0]
         a2 = pa2.sample().data[0]
-
+        
         # Receive reward r_t and new state s_t+1
         obs, reward, done, info = env.step(a1,a2)
-        env.render()
+        #env.render()
         t += 1
 
         observations.append(obs_npy)
         actions.append([a1,a2])
         rewards.append(reward)
-        ep_rewards[-1] += reward
+        ep_rewards[-1] += reward 
 
         if done: # terminal s_t
             R = 0
             episodes += 1
             obs = env.reset()
-            env.render(reset=True)
+            #env.render(reset=True)
 
             print ("Finished Episode %d:" % episodes, ep_rewards[-1], np.mean(ep_rewards[-50:]))
             ep_rewards.append(0.)
@@ -151,13 +151,14 @@ while episodes < opt.N_episodes:
                 if opt.optimizer == 'rmsprop':
                     actor_critic_optimizer = torch.optim.RMSprop(actor_critic.parameters(), lr=opt.lr)
                 elif opt.optimizer == 'adam':
+                    pass 
                     #actor_critic_optimizer = torch.optim.Adam(actor_critic.parameters(), lr=opt.lr)
-                    policy_gradient_optimizer = torch.optim.Adam(policy_gradient_net.parameters(), lr=opt.lr)
+                    # policy_gradient_optimizer = torch.optim.Adam(policy_gradient_net.parameters(), lr=opt.lr)
                 elif opt.optimizer == 'sgd':
                     actor_critic_optimizer = torch.optim.SGD(actor_critic.parameters(), lr=opt.lr)
             break
 
-        if t - t_start == opt.max_steps: # reached num. forward steps
+        if t - t_start == opt.max_steps: # reached num forward steps
             #R = V.data[0]
             R= 0
             break
@@ -168,7 +169,7 @@ while episodes < opt.N_episodes:
         R = rewards[i] + opt.gamma*R
         rewards[i] = R
         i -= 1
-    
+
     actions_t1 = torch.Tensor([item[0] for item in actions]).type(torch.LongTensor)
     actions_t2 = torch.Tensor([item[1] for item in actions]).type(torch.LongTensor)
     if opt.cuda:
@@ -180,6 +181,8 @@ while episodes < opt.N_episodes:
     rewards_t = torch.Tensor(rewards)
     if opt.cuda:
         rewards_t = rewards_t.cuda()
+    eps = np.finfo(np.float32).eps.item()
+    rewards_t = (rewards_t - rewards_t.mean()) / (rewards_t.std() + eps)
     rewards_v = Variable(rewards_t)
 
     observations_npy = np.concatenate(observations)
@@ -193,20 +196,22 @@ while episodes < opt.N_episodes:
     pa1_multinomial = Multinomial(pa1)
     pa2_multinomial = Multinomial(pa2)
 
-    policy_gradient_net.zero_grad()
+    #policy_gradient_net.zero_grad()
+    policy_gradient_optimizer.zero_grad()
 
     # gradient step
     policy_loss1 = -pa1_multinomial.log_prob(actions_v1) * (rewards_v)
     policy_loss2 = -pa2_multinomial.log_prob(actions_v2) * (rewards_v)
 
     #value_loss = (rewards_v - V).pow(2).mean()
-    entropy1 = -torch.sum(pa1 * torch.log(pa1), dim=1).mean()
-    entropy2 = -torch.sum(pa2 * torch.log(pa2), dim=1).mean()
+    #entropy1 = -torch.sum(pa1 * torch.log(pa1), dim=1).mean()
+    #entropy2 = -torch.sum(pa2 * torch.log(pa2), dim=1).mean()
+    
     policy_lossT = (policy_loss1) + (policy_loss2)
-
+    print(policy_lossT)
     (policy_lossT).sum().backward()
 
-    torch.nn.utils.clip_grad_norm(policy_gradient_net.parameters(), opt.max_grad_norm)
+    #torch.nn.utils.clip_grad_norm(policy_gradient_net.parameters(), opt.max_grad_norm)
     policy_gradient_optimizer.step()
 
     np.save(os.path.join(opt.experiment, 'results'), ep_rewards)
@@ -220,7 +225,7 @@ np.save(os.path.join(opt.experiment, 'results'), ep_rewards)
 rewards = []
 for k in range(1000):
     obs = env.reset()
-    env.render(reset=True)
+    #env.render(reset=True)
 
     done = False
     R = 0
@@ -240,7 +245,7 @@ for k in range(1000):
 
         # Receive reward r_t and new state s_t+1
         obs, reward, done, info = env.step(a1,a2)
-        env.render()
+        #env.render()
 
         R += reward
     print (R)

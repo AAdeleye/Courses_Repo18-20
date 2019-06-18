@@ -243,7 +243,11 @@ class MappingEnvironment(object):
         new_l_t = self.l_t + self.ism.log_odds(self.pose)
 
         # reward is decrease in entropy
-        reward = np.sum(self.calc_entropy(self.l_t)) - np.sum(self.calc_entropy(new_l_t))
+        a = (self.pose.x1 - self.pose.x2)**2
+        b = (self.pose.y1 - self.pose.y2)**2
+        dist_bonus = np.sqrt(a+b)
+        reward = np.sum(self.calc_entropy(self.l_t)) - np.sum(self.calc_entropy(new_l_t)) 
+        #+ dist_bonus  
 
         # Check if done
         done = False
@@ -253,7 +257,7 @@ class MappingEnvironment(object):
 
         self.l_t = new_l_t
 
-        return self.get_observation(), reward, done, None
+        return self.get_observation(), reward, done, None # dist_bonus
 
     def render(self, reset=False):
         from gym.envs.classic_control import rendering
